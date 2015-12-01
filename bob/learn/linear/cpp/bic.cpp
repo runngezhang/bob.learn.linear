@@ -350,6 +350,7 @@ double bob::learn::linear::BICMachine::forward_(const blitz::Array<double,1>& in
   return output;
 }
 
+
 /**
  * Computes the BIC or IEC score for the given input vector.
  * The score itself is the log-likelihood score of the given input vector belonging to the intrapersonal class.
@@ -366,6 +367,35 @@ double bob::learn::linear::BICMachine::forward(const blitz::Array<double,1>& inp
   return forward_(input);
 }
 
+/**
+ * Computes the BIC or IEC log likelihood vector for the given input difference.
+ * This log likelihood vector is a concatenation of the input difference projected into the intra-class and extra-class subspaces (if projection is enabled), and divided by the according variances.
+ *
+ * @param  input  A vector (of difference values) to compute the BIC or IEC log likelihood vector for.
+ * @param  output The resulting log likelihood vector, must be of size output_size().
+ */
+void bob::learn::linear::BICMachine::log_likelihood_vector(const blitz::Array<double,1>& input, blitz::Array<double,1>& output) const{
+
+  if (output.extent(0) != output_size())
+    throw std::runtime_error((boost::format("The output dimension is %d but should be %d")%output.extent(0)%output_size()).str());
+
+  if (m_project_data){
+    // subtract mean
+    m_diff_I = input - m_mu_I;
+    m_diff_E = input - m_mu_E;
+    // project data to intrapersonal and extrapersonal subspace
+    bob::math::prod(m_diff_I, m_Phi_I, m_proj_I);
+    bob::math::prod(m_diff_E, m_Phi_E, m_proj_E);
+
+    // compute Mahalanobis distance vector
+    output(blitz::Range(0,m_proj_E.extent(1))) = blitz::pow2(m_proj_E) / m_lambda_E;
+    output(blitz::Range(m_proj_E.extent(1),output.extent(0))) = - blitz::pow2(m_proj_I) / m_lambda_I;
+  } else {
+    // forward without projection
+    output(blitz::Range(0,m_mu_E.extent(0))) = blitz::pow2(input - m_mu_E) / m_lambda_E;
+    output(blitz::Range(m_mu_E.extent(0),output.extent(0))) = - blitz::pow2(input - m_mu_I) / m_lambda_I;
+  }
+}
 
 /*************************************************************
 ************************ BIC Trainer *************************

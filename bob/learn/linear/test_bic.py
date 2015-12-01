@@ -57,6 +57,10 @@ def test_IEC():
   machine2 = trainer.train(intra_data, extra_data)
   assert machine.is_similar_to(machine2)
 
+  # test that the python implementation using iterators is giving the same results
+  machine3 = bob.learn.linear.train_iec(intra_data, extra_data)
+  assert machine.is_similar_to(machine3)
+
 @nose.tools.raises(RuntimeError)
 def test_raises():
 
@@ -102,6 +106,7 @@ def test_BIC():
 #  assert machine == machine2
   # But, in fact the machines should be identical.
   assert machine.is_similar_to(machine2, 1e-10, 1e-15)
+
 
 def test_bic_split():
   # Tests the auxiliary function bic_intra_extra_pairs

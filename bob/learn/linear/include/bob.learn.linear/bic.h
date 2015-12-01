@@ -61,6 +61,10 @@ namespace bob { namespace learn { namespace linear {
       //! performs some checks before calling the forward_ method
       double forward (const blitz::Array<double,1>& input) const;
 
+      //! computes the log likelihood vector for the given input vector
+      //! The size of the output vector needs to be twice the size of the input vector, or m_Phi_I.extent(1) + m_Phi_E.extent(1) when the data is projected, see output_size()
+      void log_likelihood_vector(const blitz::Array<double,1>& input, blitz::Array<double,1>& output) const;
+
       //! sets the IEC vectors of the given class (used by the trainer only; not bound to python)
       void setIEC(bool clazz, const blitz::Array<double,1>& mean, const blitz::Array<double,1>& variances, bool copy_data = false);
 
@@ -81,6 +85,9 @@ namespace bob { namespace learn { namespace linear {
 
       //! Expected input dimensionality
       int input_size() const {return m_mu_I.extent(0);}
+
+      //! output dimensionality for the log_likelihood_vector function
+      int output_size() const {return m_project_data ? m_Phi_I.extent(1) + m_Phi_E.extent(1) : 2*m_mu_I.extent(0);}
 
     private:
 

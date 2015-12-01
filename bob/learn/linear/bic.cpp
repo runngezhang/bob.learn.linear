@@ -210,6 +210,17 @@ BOB_TRY
 BOB_CATCH_MEMBER("input_size", 0)
 }
 
+static auto output_size_doc = bob::extension::VariableDoc(
+  "output_size",
+  "int",
+  "The expected output dimensionality of :py:meth:`log_likelihood_vector`, read-only"
+);
+PyObject* PyBobLearnLinearBICMachine_getOutputSize(PyBobLearnLinearBICMachineObject* self, void*){
+BOB_TRY
+  return Py_BuildValue("i", self->cxx->output_size());
+BOB_CATCH_MEMBER("output_size", 0)
+}
+
 
 static PyGetSetDef PyBobLearnLinearBICMachine_getseters[] = {
   {
@@ -226,12 +237,118 @@ static PyGetSetDef PyBobLearnLinearBICMachine_getseters[] = {
     input_size_doc.doc(),
     0
   },
+  {
+    output_size_doc.name(),
+    (getter)PyBobLearnLinearBICMachine_getOutputSize,
+    0,
+    output_size_doc.doc(),
+    0
+  },
   {0}  /* Sentinel */
 };
 
 /******************************************************************/
 /************ Functions Section ***********************************/
 /******************************************************************/
+
+static auto set_iec_doc = bob::extension::FunctionDoc(
+  "set_iec",
+  "Sets the parameters of the IEC, which are mean and variance for intra- and extra-class",
+  "This function allows to set the means and variances for intra- and extra-classes that have been acquired externally, e.g., inside :py:func:`bob.learn.linear.train_iec`. "
+  "All parameters must be 1D float arrays of the same size.",
+  true
+)
+.add_prototype("intra_mean, intra_variances, extra_mean, extra_variances")
+.add_parameter("intra_mean, extra_mean", "array_like (float, 1D)", "The means of the intra-class and extra-class comparisons")
+.add_parameter("intra_variances, extra_variances", "array_like (float, 1D)", "The variances of the intra-class and extra-class comparisons")
+;
+
+static PyObject* PyBobLearnLinearBICMachine_set_iec(PyBobLearnLinearBICMachineObject* self, PyObject* args, PyObject* kwargs) {
+BOB_TRY
+  char** kwlist = set_iec_doc.kwlist();
+
+  PyBlitzArrayObject* im,* iv,* em, *ev;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&O&O&O&", kwlist,
+      &PyBlitzArray_Converter, &im, &PyBlitzArray_Converter, &iv,
+      &PyBlitzArray_Converter, &em, &PyBlitzArray_Converter, &ev)
+  ) return 0;
+
+  auto im_ = make_safe(im);
+  auto iv_ = make_safe(iv);
+  auto em_ = make_safe(em);
+  auto ev_ = make_safe(ev);
+
+  if (im->ndim != 1 || im->type_num != NPY_FLOAT64){
+    PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'intra_mean'", Py_TYPE(self)->tp_name);
+    return 0;
+  }
+  if (iv->ndim != 1 || iv->type_num != NPY_FLOAT64){
+    PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'intra_variances'", Py_TYPE(self)->tp_name);
+    return 0;
+  }
+  if (em->ndim != 1 || em->type_num != NPY_FLOAT64){
+    PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'extra_mean'", Py_TYPE(self)->tp_name);
+    return 0;
+  }
+  if (ev->ndim != 1 || ev->type_num != NPY_FLOAT64){
+    PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'extra_variances'", Py_TYPE(self)->tp_name);
+    return 0;
+  }
+
+  // set intra-class, copy data
+  self->cxx->setIEC(false, *PyBlitzArrayCxx_AsBlitz<double,1>(im), *PyBlitzArrayCxx_AsBlitz<double,1>(iv), true);
+  // set extra-class, copy data
+  self->cxx->setIEC(true, *PyBlitzArrayCxx_AsBlitz<double,1>(em), *PyBlitzArrayCxx_AsBlitz<double,1>(ev), true);
+  Py_RETURN_NONE;
+BOB_CATCH_MEMBER("set_iec", 0)
+}
+
+
+static auto log_likelihood_vector_doc = bob::extension::FunctionDoc(
+  "log_likelihood_vector",
+  "Computes the BIC or IEC vector for the given input vector, which results of a comparison vector of two (facial) images",
+  "The resulting vector contains the extra-personal and intra-personal log-likelihood score, for each element of the ``input`` vector separately. "
+  "The size of the output vector is given by :py:attr:`output_size`.\n\n"
+  ".. warning:: The :py:attr:`use_DFFS` flag is ignored in this case, an no DFFS is computed.",
+  true
+)
+.add_prototype("input, [output]", "output")
+.add_parameter("input", "array_like (float, 1D)", "The input vector, which is the result of comparing to (facial) images")
+.add_parameter("output", "array_like (float, 1D)", "The output vector, which -- if given -- should be of size :py:attr:`output_size`")
+.add_return("output", "array_like (float, 1D)", "The output vector, of size :py:attr:`output_size`; identical to the ``output`` parameter, if given")
+;
+
+static PyObject* PyBobLearnLinearBICMachine_log_likelihood_vector(PyBobLearnLinearBICMachineObject* self, PyObject* args, PyObject* kwargs) {
+BOB_TRY
+  char** kwlist = log_likelihood_vector_doc.kwlist();
+
+  PyBlitzArrayObject* input,* output = 0;
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O&|O&", kwlist, &PyBlitzArray_Converter, &input, &PyBlitzArray_OutputConverter, &output)) return 0;
+  auto input_ = make_safe(input);
+  auto output_ = make_xsafe(output);
+
+  if (input->ndim != 1 || input->type_num != NPY_FLOAT64){
+    PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'input'", Py_TYPE(self)->tp_name);
+    return 0;
+  }
+
+  // create output, if necessary
+  if (!output){
+    Py_ssize_t osize[] = {self->cxx->output_size()};
+    output = (PyBlitzArrayObject*)PyBlitzArray_SimpleNew(NPY_FLOAT64, 1, osize);
+    output_ = make_safe(output);
+  } else {
+    // check output
+    if (output->ndim != 1 || output->type_num != NPY_FLOAT64){
+      PyErr_Format(PyExc_TypeError, "`%s' only supports 1D 64-bit float arrays for 'output'", Py_TYPE(self)->tp_name);
+      return 0;
+    }
+  }
+
+  self->cxx->log_likelihood_vector(*PyBlitzArrayCxx_AsBlitz<double,1>(input), *PyBlitzArrayCxx_AsBlitz<double,1>(output));
+  return  PyBlitzArray_AsNumpyArray(output, 0);
+BOB_CATCH_MEMBER("log_likelihood_value", 0)
+}
 
 static auto forward_doc = bob::extension::FunctionDoc(
   "forward",
@@ -263,6 +380,7 @@ BOB_TRY
   return Py_BuildValue("d", score);
 BOB_CATCH_MEMBER("forward", 0)
 }
+
 
 static auto similar_doc = bob::extension::FunctionDoc(
   "is_similar_to",
@@ -342,6 +460,18 @@ BOB_CATCH_MEMBER("save", 0)
 
 static PyMethodDef PyBobLearnLinearBICMachine_methods[] = {
   {
+    set_iec_doc.name(),
+    (PyCFunction)PyBobLearnLinearBICMachine_set_iec,
+    METH_VARARGS|METH_KEYWORDS,
+    set_iec_doc.doc()
+  },
+  {
+    log_likelihood_vector_doc.name(),
+    (PyCFunction)PyBobLearnLinearBICMachine_log_likelihood_vector,
+    METH_VARARGS|METH_KEYWORDS,
+    log_likelihood_vector_doc.doc()
+  },
+  {
     forward_doc.name(),
     (PyCFunction)PyBobLearnLinearBICMachine_forward,
     METH_VARARGS|METH_KEYWORDS,
@@ -379,8 +509,8 @@ static auto train_doc = bob::extension::FunctionDoc(
 .add_prototype("intra_differences, extra_differences, [machine]", "machine")
 .add_parameter("intra_differences", "array_like (float, 2D)", "The input vectors, which are the result of intrapersonal (facial image) comparisons, in shape ``(#features, length)``")
 .add_parameter("extra_differences", "array_like (float, 2D)", "The input vectors, which are the result of extrapersonal (facial image) comparisons, in shape ``(#features, length)``")
-.add_parameter("machine", ":py:class:`bob.learn.linear.BICMachine`", "The machine to be trained")
-.add_return("machine", ":py:class:`bob.learn.linear.BICMachine`", "A newly generated and trained BIC machine, where the `bob.lear.linear.BICMachine.use_DFFS` flag is set to ``False``")
+.add_parameter("machine", ":py:class:`BICMachine`", "The machine to be trained; if not given, a new machine is generated, with its :py:attr:`BICMachine.use_DFFS` flag set to ``False``")
+.add_return("machine", ":py:class:`BICMachine`", "The trained BIC machine; identical to the ``machine`` parameter, if given.")
 ;
 
 static PyObject* PyBobLearnLinearBICTrainer_train(PyBobLearnLinearBICTrainerObject* self, PyObject* args, PyObject* kwargs) {
@@ -403,7 +533,7 @@ BOB_TRY
     return 0;
   }
   if (intra->shape[1] != extra->shape[1]){
-    PyErr_Format(PyExc_TypeError, "`%s' The lenght of the feature vectors differ", Py_TYPE(self)->tp_name);
+    PyErr_Format(PyExc_TypeError, "`%s' The lengths of the feature vectors differ", Py_TYPE(self)->tp_name);
     return 0;
   }
 
