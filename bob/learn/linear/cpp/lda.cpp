@@ -127,7 +127,7 @@ namespace bob { namespace learn { namespace linear {
       blitz::Array<double,1> preMean(n_features);
       blitz::Array<double,2> Sw(n_features, n_features);
       blitz::Array<double,2> Sb(n_features, n_features);
-      bob::math::scatters_(data, Sw, Sb, preMean);
+      bob::math::scatters(data, Sw, Sb, preMean);
 
       // computes the generalized eigenvalue decomposition
       // so to find the eigen vectors/values of Sw^(-1) * Sb
@@ -137,11 +137,11 @@ namespace bob { namespace learn { namespace linear {
       if (m_use_pinv) {
 
         //note: misuse V and Sw as temporary place holders for data
-        bob::math::pinv_(Sw, V); //V now contains Sw^-1
-        bob::math::prod_(V, Sb, Sw); //Sw now contains Sw^-1*Sb
+        bob::math::pinv(Sw, V); //V now contains Sw^-1
+        bob::math::prod(V, Sb, Sw); //Sw now contains Sw^-1*Sb
         blitz::Array<std::complex<double>,1> Dtemp(eigen_values_.shape());
         blitz::Array<std::complex<double>,2> Vtemp(V.shape());
-        bob::math::eig_(Sw, Vtemp, Dtemp); //V now contains eigen-vectors
+        bob::math::eig(Sw, Vtemp, Dtemp); //V now contains eigen-vectors
 
         //sorting: we know this problem on has real eigen-values
         blitz::Range a = blitz::Range::all();
@@ -153,7 +153,7 @@ namespace bob { namespace learn { namespace linear {
         }
       }
       else {
-        bob::math::eigSym_(Sb, Sw, V, eigen_values_);
+        bob::math::eigSym(Sb, Sw, V, eigen_values_);
       }
 
       // Convert ascending order to descending order

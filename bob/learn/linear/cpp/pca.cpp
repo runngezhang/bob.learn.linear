@@ -68,12 +68,12 @@ namespace bob { namespace learn { namespace linear {
      */
     blitz::Array<double,1> mean(X.extent(1));
     blitz::Array<double,2> Sigma(X.extent(1), X.extent(1));
-    bob::math::scatter_(X, Sigma, mean);
+    bob::math::scatter(X, Sigma, mean);
     Sigma /= (X.extent(0)-1); //unbiased variance estimator
 
     blitz::Array<double,2> U(X.extent(1), X.extent(1));
     blitz::Array<double,1> e(X.extent(1));
-    bob::math::eigSym_(Sigma, U, e);
+    bob::math::eigSym(Sigma, U, e);
     e.reverseSelf(0);
     U.reverseSelf(1);
 
@@ -123,7 +123,7 @@ namespace bob { namespace learn { namespace linear {
     const int rank_1 = (rank == (int)X.extent(1))? X.extent(1) : X.extent(0);
     blitz::Array<double,2> U(X.extent(1), rank_1);
     blitz::Array<double,1> sigma(rank_1);
-    bob::math::svd_(data, U, sigma, safe_svd);
+    bob::math::svd(data, U, sigma, safe_svd);
 
     /**
      * sets the linear machine with the results:

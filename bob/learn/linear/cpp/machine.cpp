@@ -155,7 +155,7 @@ namespace bob { namespace learn { namespace linear {
   void Machine::forward_ (const blitz::Array<double,1>& input, blitz::Array<double,1>& output) const {
 
     m_buffer = (input - m_input_sub) / m_input_div;
-    bob::math::prod_(m_buffer, m_weight, output);
+    bob::math::prod(m_buffer, m_weight, output);
     for (int i=0; i<m_weight.extent(1); ++i)
       output(i) = m_activation->f(output(i) + m_bias(i));
 
