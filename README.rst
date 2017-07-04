@@ -13,8 +13,6 @@
    :target: https://gitlab.idiap.ch/bob/bob.learn.linear
 .. image:: http://img.shields.io/pypi/v/bob.learn.linear.svg
    :target: https://pypi.python.org/pypi/bob.learn.linear
-.. image:: http://img.shields.io/pypi/dm/bob.learn.linear.svg
-   :target: https://pypi.python.org/pypi/bob.learn.linear
 
 
 =====================================
